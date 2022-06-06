@@ -2,15 +2,17 @@ from selenium.webdriver.chrome.webdriver import Options
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver import Chrome
-from settings import ROOT_DIR
+from settings import CREDENTIALS_PATH, CHROMEDRIVER_PATH, COOKIES_PATH
+from settings import MainUrl
 
 import os
+import json
 import configparser
 
 
 def credentials():
     config = configparser.ConfigParser()
-    if not os.path.exists(os.path.join(ROOT_DIR, 'credentials.ini')):
+    if not os.path.exists(CREDENTIALS_PATH):
         raise FileNotFoundError('credentials.ini not found')
     config.read('credentials.ini')
 
@@ -21,7 +23,7 @@ def webdriver(headless=False) -> WebDriver:
     options = Options()
     options.headless = headless
 
-    driver = Chrome(os.path.join(ROOT_DIR, 'chromedriver'), options=options)
+    driver = Chrome(CHROMEDRIVER_PATH, options=options)
     driver.set_window_rect(311, 142, 1550, 797)
 
     return driver
@@ -41,7 +43,7 @@ def login(driver: WebDriver):
 
 
 def logout(driver: WebDriver):
-    driver.get(f"{ROOT_DIR}/main?log=logout")
+    driver.get(f"{MainUrl}/main?log=logout")
 
 
 def has_logged_in(driver: WebDriver):
@@ -52,3 +54,31 @@ def has_logged_in(driver: WebDriver):
     except NoSuchElementException:
         return False
     return True
+
+
+def save_cookies(driver: WebDriver):
+    with open(COOKIES_PATH, 'w') as file:
+        json.dump(driver.get_cookies(), file, indent=8)
+
+
+def load_cookies(driver: WebDriver):
+    if not os.path.exists(COOKIES_PATH):
+        return
+
+    with open(COOKIES_PATH) as file:
+        cookies = json.load(file)
+    for cookie in cookies:
+        driver.add_cookie(cookie)
+
+    driver.refresh()
+
+
+def add_public_magnet(driver: WebDriver, magnet: str):
+    xpath = '//body//td[@class="cont-row"]//div[@class="content"]//form[@id="searchform"]'
+    el = driver.find_element_by_xpath(xpath)
+
+    textarea = el.find_element_by_xpath('//textarea[@class="linkbox"]')
+    textarea.send_keys(magnet)
+
+    submit = el.find_element_by_xpath('//input[@class="w8-button l-blue"]')
+    submit.submit()
